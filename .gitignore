@@ -1,6 +1,5 @@
 logs/
 plugins/
 config/
-.env
+*.env
 __pycache__/
-*.pyc
