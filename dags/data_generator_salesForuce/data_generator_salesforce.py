@@ -29,7 +29,6 @@ def upload_to_s3(df, root, filename, append=False):
             combined_df = pd.concat([existing_df, df], ignore_index=True)
             combined_df.to_csv(csv_buffer, index=False)
         except Exception as e:
-            # If file doesn't exist or error, just write new
             df.to_csv(csv_buffer, index=False)
     else:
         df.to_csv(csv_buffer, index=False)
@@ -109,7 +108,6 @@ def task_sales_orders():
     ]
     df_reps = pd.DataFrame(reps_data, columns=['sales_rep_id', 'rep_name', 'manager_name', 'territory', 'hire_date'])
     
-    # Generar órdenes
     orders_data = []
     product_ids = df_products['product_id'].tolist()
     product_prices = dict(zip(df_products['product_id'], df_products['list_price']))
@@ -124,7 +122,6 @@ def task_sales_orders():
         acc_id = random.choice(account_ids)
         rep_id = random.choice(rep_ids)
         
-        # Generación de fechas
         random_days_start = random.randint(0, 500)
         opty_open = start_date + timedelta(days=random_days_start)
         random_days_close = random.randint(30, 150)
@@ -135,7 +132,6 @@ def task_sales_orders():
         list_p = product_prices[prod_id]
         
         unit_price = int(list_p * random.uniform(0.85, 1.05))
-        # El descuento es proporcional al total
         line_item_discount = int(unit_price * quantity * random.uniform(0.05, 0.25))
         
         orders_data.append([
@@ -156,7 +152,6 @@ def task_sales_orders():
     df_orders.to_csv(filename, index=False)
     upload_to_s3(df_orders, 'sales_orders', f'sales_orders_extract_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv')
 
-# --- DEFINICIÓN DEL DAG ---
 with DAG(
     dag_id= owner_process.upper() + '_' + 'salesforce_data_generator',
     start_date=datetime(2026, 1, 1),
