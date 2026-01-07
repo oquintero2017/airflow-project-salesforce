@@ -1,38 +1,20 @@
 from airflow import DAG
 from airflow.operators.python import PythonOperator
 from airflow.providers.amazon.aws.hooks.s3 import S3Hook
-from airflow.providers.snowflake.operators.snowflake import SnowflakeOperator
 from datetime import datetime, timedelta
 import pandas as pd
 import random
 import io
-import os
 
 # --- CONFIGURACIÓN ---
 BUCKET_NAME = 'file-saleforce-test-s3' 
 process_name = 'data_generator_salesforce'
 owner_process = 'oquintero'
 connection_s3 = 'aws_s3_file_salesforce'
-# root_sql = '/opt/airflow/dags/data_generator_salesForuce/queries'
-DAG_PATH = os.path.dirname(os.path.realpath(__file__))
-sql_path = 'queries/refresh_external_table.sql'
 
-def upload_to_s3(df, root, filename, append=False):
+def upload_to_s3(df, root,filename):
     csv_buffer = io.StringIO()
-    
-    if append:
-        try:
-            s3_hook = S3Hook(aws_conn_id=connection_s3)
-            temp_file = f'/tmp/{filename}'
-            s3_hook.download_file(key=f"{root}/{filename}", bucket_name=BUCKET_NAME, local_path=temp_file)
-            existing_df = pd.read_csv(temp_file)
-            combined_df = pd.concat([existing_df, df], ignore_index=True)
-            combined_df.to_csv(csv_buffer, index=False)
-        except Exception as e:
-            df.to_csv(csv_buffer, index=False)
-    else:
-        df.to_csv(csv_buffer, index=False)
-    
+    df.to_csv(csv_buffer, index=False)
     s3_hook = S3Hook(aws_conn_id=connection_s3)
     s3_hook.load_string(
         string_data=csv_buffer.getvalue(),
@@ -108,6 +90,7 @@ def task_sales_orders():
     ]
     df_reps = pd.DataFrame(reps_data, columns=['sales_rep_id', 'rep_name', 'manager_name', 'territory', 'hire_date'])
     
+    # Generar órdenes
     orders_data = []
     product_ids = df_products['product_id'].tolist()
     product_prices = dict(zip(df_products['product_id'], df_products['list_price']))
@@ -126,6 +109,7 @@ def task_sales_orders():
         acc_id = random.choice(account_ids)
         rep_id = random.choice(rep_ids)
         
+        # Generación de fechas
         random_days_start = random.randint(0, 500)
         opty_open = start_date + timedelta(days=random_days_start)
         random_days_close = random.randint(30, 150)
@@ -136,6 +120,7 @@ def task_sales_orders():
         list_p = product_prices[prod_id]
         
         unit_price = int(list_p * random.uniform(0.85, 1.05))
+        # El descuento es proporcional al total
         line_item_discount = int(unit_price * quantity * random.uniform(0.05, 0.25))
         
         orders_data.append([
@@ -154,21 +139,21 @@ def task_sales_orders():
     creation_date = datetime.now().strftime('%Y%m%d')
     filename = f'sales_orders_extract_{creation_date}.csv'
     df_orders.to_csv(filename, index=False)
-    upload_to_s3(df_orders, 'sales_orders', f'sales_orders_extract_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv')
+    upload_to_s3(df_orders, 'sales_orders', f'sales_orders_extract_{datetime.now().strftime("%Y%m%d")}.csv')
 
+# --- DEFINICIÓN DEL DAG ---
 with DAG(
     dag_id= owner_process.upper() + '_' + 'salesforce_data_generator',
     start_date=datetime(2026, 1, 1),
     schedule_interval='0 5,8 * * *',
     catchup=False,
-    template_searchpath=[DAG_PATH],
     tags = [process_name, owner_process]
 ) as dag:
 
-    t1 = PythonOperator(task_id='gen_product', python_callable=task_product_catalog)
-    t2 = PythonOperator(task_id='gen_saler', python_callable=task_sales_rep_master)
-    t3 = PythonOperator(task_id='gen_account', python_callable=task_account_master)
-    t4 = PythonOperator(task_id='gen_orders', python_callable=task_sales_orders)
+    t1 = PythonOperator(task_id='gen_productos', python_callable=task_product_catalog)
+    t2 = PythonOperator(task_id='gen_vendedores', python_callable=task_sales_rep_master)
+    t3 = PythonOperator(task_id='gen_cuentas', python_callable=task_account_master)
+    t4 = PythonOperator(task_id='gen_ordenes', python_callable=task_sales_orders)
     t5 = SnowflakeOperator(
         task_id='execute_sql_snowflake',
         snowflake_conn_id='snowflake_connect',
