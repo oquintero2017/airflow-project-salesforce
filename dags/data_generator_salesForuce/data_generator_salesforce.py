@@ -116,9 +116,13 @@ def task_sales_orders():
 
     start_date = datetime(2023, 1, 1)
 
+    # Generate unique random IDs for orders and opportunities
+    order_ids = random.sample(range(1000000, 9999999), 101)
+    opp_ids = random.sample(range(1000000, 9999999), 101)
+
     for i in range(1, 101):
-        order_id = f"ORD-{1000 + i}"
-        opp_id = f"OPP-{500 + i}"
+        order_id = f"ORD-{order_ids[i-1]}"
+        opp_id = f"OPP-{opp_ids[i-1]}"
         acc_id = random.choice(account_ids)
         rep_id = random.choice(rep_ids)
         
@@ -161,10 +165,10 @@ with DAG(
     tags = [process_name, owner_process]
 ) as dag:
 
-    t1 = PythonOperator(task_id='gen_productos', python_callable=task_product_catalog)
-    t2 = PythonOperator(task_id='gen_vendedores', python_callable=task_sales_rep_master)
-    t3 = PythonOperator(task_id='gen_cuentas', python_callable=task_account_master)
-    t4 = PythonOperator(task_id='gen_ordenes', python_callable=task_sales_orders)
+    t1 = PythonOperator(task_id='gen_product', python_callable=task_product_catalog)
+    t2 = PythonOperator(task_id='gen_saler', python_callable=task_sales_rep_master)
+    t3 = PythonOperator(task_id='gen_account', python_callable=task_account_master)
+    t4 = PythonOperator(task_id='gen_orders', python_callable=task_sales_orders)
     t5 = SnowflakeOperator(
         task_id='execute_sql_snowflake',
         snowflake_conn_id='snowflake_connect',
