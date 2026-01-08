@@ -2,6 +2,7 @@ from airflow import DAG
 from airflow.operators.python import PythonOperator
 from airflow.providers.amazon.aws.hooks.s3 import S3Hook
 from airflow.providers.snowflake.operators.snowflake import SnowflakeOperator
+from airflow.operators.trigger_dagrun import TriggerDagRunOperator
 from datetime import datetime, timedelta
 import pandas as pd
 import random
@@ -175,5 +176,12 @@ with DAG(
         sql=sql_path,
         dag=dag
     )
+    t6 = trigger_transformation = TriggerDagRunOperator(
+    task_id="trigger_dag_model",
+    trigger_dag_id=owner_process.upper() + '_' + 'salesforce_data_modeling', 
+    wait_for_completion=False, 
+    poke_interval=60,
+    dag=dag,
+    )
 
-    [t1, t2, t3] >> t4 >> t5
+    [t1, t2, t3] >> t4 >> t5 >> t6
