@@ -47,4 +47,16 @@ with DAG(
         sql='queries/SALES_ORDER_FACT.sql'
     )
 
-    [t1, t2, t3] >> t4
+    t5 = SnowflakeOperator(
+        task_id='product_opportunity_view',
+        snowflake_conn_id=connection_swn,
+        sql='queries/PRODUCT_VIEW.sql'
+    )
+
+    t6 = SnowflakeOperator(
+        task_id='performance_sales_rep_complex_sales_view',
+        snowflake_conn_id=connection_swn,
+        sql='queries/PERFORMANCE_SALES_REP.sql'
+    )
+
+    [t1, t2, t3] >> t4 >> [t5, t6]
